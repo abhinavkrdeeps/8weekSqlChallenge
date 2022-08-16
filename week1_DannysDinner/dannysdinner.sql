@@ -141,9 +141,21 @@ on sales.customer_id = members.customer_id
 select find_non_members.customer_id,find_non_members.product_id, menu.product_name,menu.price,not_member from find_non_members inner join menu on find_non_members.product_id=menu.product_id where not_member=1
 )select *, count(distinct product_id) as cnt, sum(price) as total_price from get_price group by customer_id;
 
+-- If each $1 spent equates to 10 points and sushi has a 2x points multiplier -
+--  how many points would each customer have?
+select sales.customer_id,
+sum(case when product_name="sushi" then 2*10*price else 10*price end ) as total_points
+from sales inner join menu on sales.product_id = menu.product_id group by customer_id;
 
-
-
+-- In the first week after a customer joins the program (including their join date) they earn 2x points on all items, 
+ -- not just sushi - how many points do customer A and B have at the end of January?
+ 
+ with find_memberhip_date as (
+ select sales.customer_id,product_id,
+ case when cast(order_date as date) >= cast(join_date as date) then 1 else 0 end as is_member,
+ order_date,join_date from sales inner join members on sales.customer_id = members.customer_id
+ )
+ select customer_id, order_date, extract(month from order_date) as months, sum(2*10*price) over(partition by customer_id, extract(month from order_date)) as points from find_memberhip_date  inner join menu where is_member=1;
 
 
 
