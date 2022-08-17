@@ -70,12 +70,15 @@ select customer_id,  sum(price) as total_amount_spent from sales inner join menu
 'B', '74'
 'C', '36'
 
+
 -- How many days has each customer visited the restaurant?
 select customer_id, count(distinct order_date) as days_visited from sales group by customer_id;
 # customer_id, days_visited
 'A', '4'
 'B', '6'
 'C', '2'
+
+
 
 -- What was the first item from the menu purchased by each customer?
 with temp_cte as (
@@ -94,8 +97,10 @@ C, ramen
 
 -- What is the most purchased item on the menu and how many times was it purchased by all customers?
 select product_name,num_time_puchased from(
-select sales.product_id, product_name, count(1) as num_time_puchased from sales inner join menu on sales.product_id=menu.product_id
-  group by sales.product_id,product_name ) temp order by num_time_puchased desc limit 1;
+select sales.product_id, product_name, count(1) as num_time_puchased
+ from sales inner join menu on sales.product_id=menu.product_id
+  group by sales.product_id,product_name ) temp
+   order by num_time_puchased desc limit 1;
 
 # product_name, num_time_puchased
 'ramen', '8'
@@ -157,16 +162,31 @@ from sales inner join menu on sales.product_id = menu.product_id group by custom
  )
  select customer_id, order_date, extract(month from order_date) as months, sum(2*10*price) over(partition by customer_id, extract(month from order_date)) as points from find_memberhip_date  inner join menu where is_member=1;
 
+ -- join all the things
+ with get_price as (
+ select customer_id,product_name,order_date, price from sales
+ inner join menu on sales.product_id=menu.product_id
+ ), final_res as (
+ select get_price.customer_id,product_name,order_date, price,
+ case when cast(order_date as date) >= cast(join_date as date) then "Y" else "N" end as member
+ from get_price 
+ left join members on members.customer_id=get_price.customer_id
+ )select * from final_res order by customer_id;
 
 
-
-
-
-
-
-
-
-
+ -- Rank All The Things
+  with get_price as (
+ select customer_id,product_name,order_date, price from sales
+ left join menu on sales.product_id=menu.product_id
+ ), final_res as (
+ select get_price.customer_id,product_name,order_date, price,
+ case when cast(order_date as date) >= cast(join_date as date) then "Y"  WHEN join_date > order_date THEN 'N'
+ else "N" end as member
+ from get_price 
+ left join members on members.customer_id=get_price.customer_id
+ ), temp_cte as (select customer_id,product_name,order_date,price,member from final_res)
+select *, case when member="N" then null else rank() over(partition by customer_id,member order by order_date) end as  rnk
+ from temp_cte order by customer_id;
 
 
 
